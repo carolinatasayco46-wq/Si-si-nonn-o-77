@@ -4,9 +4,9 @@
    ==================================================================== */
 
 (function() {
-  // 1. CONFIGURACIÓN CORREGIDA (Resuelve ERR_NAME_NOT_RESOLVED)
-  const SUPABASE_URL = "https://carolinatassaiqo46-wq.supabase.co"; // URL Real corregida según tu panel
-  const SUPABASE_KEY = "sb_publishable_A8eDSgG2V1LwNVpQbprsHQ_0OettsMo";
+  // 1. CONFIGURACIÓN CORREGIDA CON LA URL REAL DE TU PANEL
+  const SUPABASE_URL = "https://carolinatassaiqo46-wq.supabase.co"; 
+  const SUPABASE_KEY = "sb_publishable_A8eDSgG2V1LwNVpQbprsHQ_0OettsMo"; // REEMPLAZA AQUÍ CON TU CLAVE COMPLETA
 
   // 2. CORRECCIÓN DE SYNTAXERROR: Inicialización encapsulada sin usar 'const supabase' global
   if (!window.supabaseClientInstance) {
