@@ -4,11 +4,9 @@
    ==================================================================== */
 
 (function() {
-  // 1. CONFIGURACIÓN COMPLETA CONECTADA A TU BASE DE DATOS
   const SUPABASE_URL = "https://radvowugwrkdddmbpapz.supabase.co"; 
   const SUPABASE_KEY = "sb_publishable_A8eDSgG2V1LwNVpQbprsHQ_0OettsMo"; 
 
-  // 2. EVITAR SYNTAXERROR: Inicialización segura de la instancia
   if (!window.supabaseClientInstance) {
     if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
       window.supabaseClientInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -19,21 +17,20 @@
   }
   
   const db = window.supabaseClientInstance;
-  const CURRENT_USER_ID = "u1"; // Usuario local simulado para el MVP
+  const CURRENT_USER_ID = "u1";
 
-  // Sincronizado exacto con los colores e iconos de tu captura de pantalla de Supabase
+  // Mapeo exacto de la base de datos de tu captura de pantalla
   const CATEGORY_META = {
     Programación: { icon: "code-2", color: "#4F46E5" },
     Matemáticas: { icon: "sigma", color: "#0EA5E9" },
     Idiomas: { icon: "languages", color: "#F59E0B" },
-    Diseño: { icon: "#EC4899" }, // Actualizado de tu captura (#EC4899)
+    Diseño: { icon: "palette", color: "#EC4899" },
     Ciencias: { icon: "flask-conical", color: "#10B981" },
     Música: { icon: "music-2", color: "#8B5CF6" },
   };
   const CATEGORIES = Object.keys(CATEGORY_META);
   const avatar = (seed) => `https://i.pravatar.cc/150?img=${seed}`;
 
-  /* ESTADO GLOBAL DE LA APLICACIÓN */
   const state = {
     users: {},
     questions: [],
@@ -48,7 +45,6 @@
     u4: { id: "u4", nombre: "Lucía Fernández", avatar: avatar(32), expertise: ["Idiomas"], puntos: 190 },
   };
 
-  /* CARGA DE DATOS REALES DESDE LAS TABLAS DE SUPABASE */
   async function loadDataFromSupabase() {
     try {
       let { data: publicaciones, error } = await db
@@ -111,19 +107,19 @@
     const container = document.getElementById("toast-container");
     if (!container) return;
     const el = document.createElement("div");
-    el.className = "toast-card shadow-md border border-slate-100 p-3 bg-white rounded-xl mb-2 flex items-center";
+    el.className = "toast-card shadow-md border border-slate-100 p-3 bg-white rounded-xl mb-2 flex items-center animate-in fade-in slide-in-from-bottom-2";
     el.innerHTML = `<div><p class="text-sm font-semibold text-slate-900">${escapeHtml(message)}</p></div>`;
     container.appendChild(el);
     setTimeout(() => el.remove(), 2600);
   }
 
-  /* RENDERS DE LA INTERFAZ */
+  /* RENDERIZADO COMPLETO */
   function renderUserBar() {
     const u = currentUser();
     const avatarEl = document.getElementById("current-user-avatar");
     const nameEl = document.getElementById("current-user-name");
     const valEl = document.getElementById("balance-value");
-    if (avatarEl) { avatarEl.src = u.avatar; avatarEl.alt = u.nombre; }
+    if (avatarEl) { avatarEl.src = u.avatar; }
     if (nameEl) nameEl.textContent = u.nombre;
     if (valEl) valEl.textContent = u.puntos;
   }
@@ -141,7 +137,7 @@
     let catHtml = `<button data-action="filter-category" data-category="Todas" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${state.filters.category === "Todas" ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-50"}">Todas</button>`;
     catHtml += CATEGORIES.map((cat) => {
       const meta = CATEGORY_META[cat];
-      return `<button data-action="filter-category" data-category="${cat}" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${state.filters.category === cat ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-50"}"><i data-lucide="${meta.icon || 'help-circle'}" class="h-4 w-4" style="color:${meta.color || '#EC4899'}"></i> ${cat}</button>`;
+      return `<button data-action="filter-category" data-category="${cat}" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${state.filters.category === cat ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-50"}"><i data-lucide="${meta.icon}" class="h-4 w-4" style="color:${meta.color}"></i> ${cat}</button>`;
     }).join("");
     
     const catContainer = document.getElementById("category-filters");
@@ -184,7 +180,7 @@
           </button>
           <p class="mt-1.5 text-sm text-slate-600 ${expanded ? "" : "line-clamp-2"}">${escapeHtml(q.descripcion)}</p>
           <div class="mt-3 flex items-center gap-2">
-            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style="background-color:${meta.color || '#EC4899'}14; color:${meta.color || '#EC4899'}">${q.categoria}</span>
+            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style="background-color:${meta.color}14; color:${meta.color}">${q.categoria}</span>
             <span class="ml-auto inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white">${q.puntos} pts</span>
           </div>
           ${expanded ? `<div class="mt-4 pt-4 border-t border-slate-100">${answersHtml}</div>` : ""}
@@ -201,7 +197,7 @@
     const countEl = document.getElementById("feed-count");
     if (countEl) countEl.textContent = `${filtered.length} dudas encontradas`;
     const list = document.getElementById("feed-list");
-    if (list) list.innerHTML = filtered.length === 0 ? '<div class="p-5 text-center bg-white border rounded-xl">Sin dudas cargadas en la base de datos.</div>' : filtered.map(renderQuestionCard).join("");
+    if (list) list.innerHTML = filtered.length === 0 ? '<div class="p-5 text-center bg-white border rounded-xl text-slate-500">Sin dudas cargadas.</div>' : filtered.map(renderQuestionCard).join("");
     refreshIcons();
   }
 
@@ -217,39 +213,61 @@
       </div>`).join("");
   }
 
-  function render() { renderUserBar(); renderLeftSidebar(); renderFeed(); renderRightSidebar(); }
-
-  /* ACCIONES DIRECTAS EN LA BASE DE DATOS */
-  async function acceptAnswer(qId, aId) {
-    try {
-      await db.from('respuestas').update({ es_aceptada: true }).eq('id', aId);
-      await db.from('publicaciones').update({ estado: "Resuelta" }).eq('id', qId);
-      pushToast("¡Solución aceptada!");
-      await loadDataFromSupabase();
-    } catch (err) {
-      console.error(err);
+  function populateCategoriesSelect() {
+    const select = document.getElementById("form-categoria");
+    if (select) {
+      select.innerHTML = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join("");
     }
   }
 
-  // Simulación de formulario de creación para el MVP
-  async function handleCreatePublication() {
-    const titulo = prompt("Introduce el título de tu duda:");
-    if (!titulo) return;
-    const descripcion = prompt("Introduce la descripción detallada:");
-    if (!descripcion) return;
-    const categoria = prompt(`Selecciona una categoría (${CATEGORIES.join(", ")}):`, "Programación");
-    if (!CATEGORIES.includes(categoria)) {
-      alert("Categoría no válida.");
+  function render() { renderUserBar(); renderLeftSidebar(); renderFeed(); renderRightSidebar(); }
+
+  /* LOGICA DE ACCIÓN DEL MODAL */
+  const overlay = document.getElementById("modal-overlay");
+
+  function openModal() {
+    if (overlay) {
+      overlay.classList.remove("hidden");
+      overlay.classList.add("flex");
+    }
+  }
+
+  function closeModal() {
+    if (overlay) {
+      overlay.classList.remove("flex");
+      overlay.classList.add("hidden");
+    }
+    // Limpiar campos
+    ['form-titulo', 'form-descripcion'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    const err = document.getElementById("form-error");
+    if (err) err.classList.add("hidden");
+  }
+
+  async function handlePublish() {
+    const titulo = document.getElementById("form-titulo").value.trim();
+    const descripcion = document.getElementById("form-descripcion").value.trim();
+    const categoria = document.getElementById("form-categoria").value;
+    const puntos = parseInt(document.getElementById("form-puntos").value) || 20;
+    const errorEl = document.getElementById("form-error");
+
+    if (!titulo || !descripcion) {
+      if (errorEl) {
+        errorEl.textContent = "Por favor, completa el título y la descripción.";
+        errorEl.classList.remove("hidden");
+      }
       return;
     }
 
     try {
-      const { data, error } = await db.from('publicaciones').insert([
+      const { error } = await db.from('publicaciones').insert([
         {
           titulo: titulo,
           descripcion: descripcion,
           categoria: categoria,
-          puntos: 50,
+          puntos: puntos,
           estado: "Abierta",
           usuario_id: CURRENT_USER_ID,
           fecha: new Date().toISOString().slice(0, 10)
@@ -257,32 +275,34 @@
       ]);
 
       if (error) throw error;
+
+      closeModal();
       pushToast("¡Duda publicada con éxito!");
       await loadDataFromSupabase();
     } catch (err) {
-      console.error("Error al insertar publicación:", err.message);
-      alert("Error al guardar en Supabase. Revisa las políticas de RLS.");
+      console.error(err);
+      if (errorEl) {
+        errorEl.textContent = "Error de Supabase: Revisa los permisos de RLS.";
+        errorEl.classList.remove("hidden");
+      }
     }
   }
 
-  /* SISTEMA DE ESCUCHA GLOBAL CAPAZ DE CAPTURAR BOTONES */
+  /* EVENTOS GLOBALES */
   function init() {
-    document.addEventListener("click", (e) => {
-      // Capturar acciones declaradas explícitamente en data-action
-      const target = e.target.closest("[data-action]");
-      
-      // Control de seguridad si el clic se hace en los botones de "Publicar" por su contenido de texto
-      if (e.target.textContent.includes("Publicar duda") || (target && target.dataset.action === "create-publication")) {
-        handleCreatePublication();
-        return;
-      }
+    populateCategoriesSelect();
 
+    document.addEventListener("click", (e) => {
+      const target = e.target.closest("[data-action]");
       if (!target) return;
+
       const action = target.dataset.action;
+      if (action === "open-modal") { openModal(); }
+      if (action === "close-modal") { closeModal(); }
+      if (action === "submit-publish") { handlePublish(); }
       if (action === "toggle-expand") { state.expandedId = state.expandedId === target.dataset.qid ? null : target.dataset.qid; renderFeed(); }
       if (action === "filter-category") { state.filters.category = target.dataset.category; renderLeftSidebar(); renderFeed(); }
       if (action === "filter-status") { state.filters.status = target.dataset.status; renderLeftSidebar(); renderFeed(); }
-      if (action === "accept-answer") { acceptAnswer(target.dataset.qid, target.dataset.aid); }
     });
 
     const searchInp = document.getElementById("search-input");
