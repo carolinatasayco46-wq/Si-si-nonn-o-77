@@ -4,11 +4,11 @@
    ==================================================================== */
 
 (function() {
-  // 1. CONFIGURACIÓN 100% REAL VERIFICADA
+  // 1. CONFIGURACIÓN COMPLETA CONECTADA A TU BASE DE DATOS
   const SUPABASE_URL = "https://radvowugwrkdddmbpapz.supabase.co"; 
   const SUPABASE_KEY = "sb_publishable_A8eDSgG2V1LwNVpQbprsHQ_0OettsMo"; 
 
-  // 2. EVITAR SYNTAXERROR: Inicialización segura
+  // 2. EVITAR SYNTAXERROR: Inicialización segura de la instancia
   if (!window.supabaseClientInstance) {
     if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
       window.supabaseClientInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -19,13 +19,14 @@
   }
   
   const db = window.supabaseClientInstance;
-  const CURRENT_USER_ID = "u1";
+  const CURRENT_USER_ID = "u1"; // Usuario local simulado para el MVP
 
+  // Sincronizado exacto con los colores e iconos de tu captura de pantalla de Supabase
   const CATEGORY_META = {
     Programación: { icon: "code-2", color: "#4F46E5" },
     Matemáticas: { icon: "sigma", color: "#0EA5E9" },
     Idiomas: { icon: "languages", color: "#F59E0B" },
-    Diseño: { icon: "palette", color: "#EC4899" },
+    Diseño: { icon: "#EC4899" }, // Actualizado de tu captura (#EC4899)
     Ciencias: { icon: "flask-conical", color: "#10B981" },
     Música: { icon: "music-2", color: "#8B5CF6" },
   };
@@ -37,8 +38,7 @@
     users: {},
     questions: [],
     filters: { category: "Todas", status: "Todas", search: "" },
-    expandedId: null,
-    drafts: {},
+    expandedId: null
   };
 
   const fallbackUsers = {
@@ -48,7 +48,7 @@
     u4: { id: "u4", nombre: "Lucía Fernández", avatar: avatar(32), expertise: ["Idiomas"], puntos: 190 },
   };
 
-  /* CARGA DE DATOS REALES DESDE LAS TABLAS EN ESPAÑOL DE SUPABASE */
+  /* CARGA DE DATOS REALES DESDE LAS TABLAS DE SUPABASE */
   async function loadDataFromSupabase() {
     try {
       let { data: publicaciones, error } = await db
@@ -117,7 +117,7 @@
     setTimeout(() => el.remove(), 2600);
   }
 
-  /* RENDERS DE COMPONENTES DE INTERFAZ */
+  /* RENDERS DE LA INTERFAZ */
   function renderUserBar() {
     const u = currentUser();
     const avatarEl = document.getElementById("current-user-avatar");
@@ -141,7 +141,7 @@
     let catHtml = `<button data-action="filter-category" data-category="Todas" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${state.filters.category === "Todas" ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-50"}">Todas</button>`;
     catHtml += CATEGORIES.map((cat) => {
       const meta = CATEGORY_META[cat];
-      return `<button data-action="filter-category" data-category="${cat}" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${state.filters.category === cat ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-50"}"><i data-lucide="${meta.icon}" class="h-4 w-4" style="color:${meta.color}"></i> ${cat}</button>`;
+      return `<button data-action="filter-category" data-category="${cat}" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${state.filters.category === cat ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-50"}"><i data-lucide="${meta.icon || 'help-circle'}" class="h-4 w-4" style="color:${meta.color || '#EC4899'}"></i> ${cat}</button>`;
     }).join("");
     
     const catContainer = document.getElementById("category-filters");
@@ -184,7 +184,7 @@
           </button>
           <p class="mt-1.5 text-sm text-slate-600 ${expanded ? "" : "line-clamp-2"}">${escapeHtml(q.descripcion)}</p>
           <div class="mt-3 flex items-center gap-2">
-            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style="background-color:${meta.color}14; color:${meta.color}">${q.categoria}</span>
+            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style="background-color:${meta.color || '#EC4899'}14; color:${meta.color || '#EC4899'}">${q.categoria}</span>
             <span class="ml-auto inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white">${q.puntos} pts</span>
           </div>
           ${expanded ? `<div class="mt-4 pt-4 border-t border-slate-100">${answersHtml}</div>` : ""}
@@ -219,6 +219,7 @@
 
   function render() { renderUserBar(); renderLeftSidebar(); renderFeed(); renderRightSidebar(); }
 
+  /* ACCIONES DIRECTAS EN LA BASE DE DATOS */
   async function acceptAnswer(qId, aId) {
     try {
       await db.from('respuestas').update({ es_aceptada: true }).eq('id', aId);
@@ -230,10 +231,52 @@
     }
   }
 
-  /* SISTEMA DE ESCUCHA GLOBAL CAPAZ DE CAPTURAR BOTONES DINÁMICOS */
+  // Simulación de formulario de creación para el MVP
+  async function handleCreatePublication() {
+    const titulo = prompt("Introduce el título de tu duda:");
+    if (!titulo) return;
+    const descripcion = prompt("Introduce la descripción detallada:");
+    if (!descripcion) return;
+    const categoria = prompt(`Selecciona una categoría (${CATEGORIES.join(", ")}):`, "Programación");
+    if (!CATEGORIES.includes(categoria)) {
+      alert("Categoría no válida.");
+      return;
+    }
+
+    try {
+      const { data, error } = await db.from('publicaciones').insert([
+        {
+          titulo: titulo,
+          descripcion: descripcion,
+          categoria: categoria,
+          puntos: 50,
+          estado: "Abierta",
+          usuario_id: CURRENT_USER_ID,
+          fecha: new Date().toISOString().slice(0, 10)
+        }
+      ]);
+
+      if (error) throw error;
+      pushToast("¡Duda publicada con éxito!");
+      await loadDataFromSupabase();
+    } catch (err) {
+      console.error("Error al insertar publicación:", err.message);
+      alert("Error al guardar en Supabase. Revisa las políticas de RLS.");
+    }
+  }
+
+  /* SISTEMA DE ESCUCHA GLOBAL CAPAZ DE CAPTURAR BOTONES */
   function init() {
     document.addEventListener("click", (e) => {
+      // Capturar acciones declaradas explícitamente en data-action
       const target = e.target.closest("[data-action]");
+      
+      // Control de seguridad si el clic se hace en los botones de "Publicar" por su contenido de texto
+      if (e.target.textContent.includes("Publicar duda") || (target && target.dataset.action === "create-publication")) {
+        handleCreatePublication();
+        return;
+      }
+
       if (!target) return;
       const action = target.dataset.action;
       if (action === "toggle-expand") { state.expandedId = state.expandedId === target.dataset.qid ? null : target.dataset.qid; renderFeed(); }
