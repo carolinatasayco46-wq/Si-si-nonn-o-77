@@ -1,6 +1,5 @@
 /* ====================================================================
-   SKILLSWAP — MVP de Trueque de Conocimientos (VERSIÓN FINAL PRODUCCIÓN)
-   Vanilla JavaScript · Conectado de forma real a las tablas de Supabase
+   SKILLSWAP — MVP de Trueque de Conocimientos (VERSIÓN CORREGIDA)
    ==================================================================== */
 
 (function() {
@@ -19,7 +18,6 @@
   const db = window.supabaseClientInstance;
   const CURRENT_USER_ID = "u1";
 
-  // Mapeo exacto de la base de datos de tu captura de pantalla
   const CATEGORY_META = {
     Programación: { icon: "code-2", color: "#4F46E5" },
     Matemáticas: { icon: "sigma", color: "#0EA5E9" },
@@ -107,19 +105,18 @@
     const container = document.getElementById("toast-container");
     if (!container) return;
     const el = document.createElement("div");
-    el.className = "toast-card shadow-md border border-slate-100 p-3 bg-white rounded-xl mb-2 flex items-center animate-in fade-in slide-in-from-bottom-2";
+    el.className = "toast-card shadow-md border border-slate-100 p-3 bg-white rounded-xl mb-2 flex items-center";
     el.innerHTML = `<div><p class="text-sm font-semibold text-slate-900">${escapeHtml(message)}</p></div>`;
     container.appendChild(el);
     setTimeout(() => el.remove(), 2600);
   }
 
-  /* RENDERIZADO COMPLETO */
   function renderUserBar() {
     const u = currentUser();
     const avatarEl = document.getElementById("current-user-avatar");
     const nameEl = document.getElementById("current-user-name");
     const valEl = document.getElementById("balance-value");
-    if (avatarEl) { avatarEl.src = u.avatar; }
+    if (avatarEl) avatarEl.src = u.avatar;
     if (nameEl) nameEl.textContent = u.nombre;
     if (valEl) valEl.textContent = u.puntos;
   }
@@ -222,26 +219,27 @@
 
   function render() { renderUserBar(); renderLeftSidebar(); renderFeed(); renderRightSidebar(); }
 
-  /* LOGICA DE ACCIÓN DEL MODAL */
-  const overlay = document.getElementById("modal-overlay");
-
+  /* ACCIONES DEL MODAL INTERACTIVO */
   function openModal() {
+    const overlay = document.getElementById("modal-overlay");
     if (overlay) {
       overlay.classList.remove("hidden");
       overlay.classList.add("flex");
+    } else {
+      console.error("No se encontró el elemento #modal-overlay");
     }
   }
 
   function closeModal() {
+    const overlay = document.getElementById("modal-overlay");
     if (overlay) {
       overlay.classList.remove("flex");
       overlay.classList.add("hidden");
     }
-    // Limpiar campos
-    ['form-titulo', 'form-descripcion'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = "";
-    });
+    const txtTitulo = document.getElementById('form-titulo');
+    const txtDesc = document.getElementById('form-descripcion');
+    if (txtTitulo) txtTitulo.value = "";
+    if (txtDesc) txtDesc.value = "";
     const err = document.getElementById("form-error");
     if (err) err.classList.add("hidden");
   }
@@ -282,24 +280,25 @@
     } catch (err) {
       console.error(err);
       if (errorEl) {
-        errorEl.textContent = "Error de Supabase: Revisa los permisos de RLS.";
+        errorEl.textContent = "Error al insertar. Revisa la consola.";
         errorEl.classList.remove("hidden");
       }
     }
   }
 
-  /* EVENTOS GLOBALES */
+  /* INICIALIZACIÓN FRENTE A EVENTOS */
   function init() {
     populateCategoriesSelect();
 
+    // Sistema Alternativo 1: Captura directa por selectores de atributos en todo el DOM
     document.addEventListener("click", (e) => {
       const target = e.target.closest("[data-action]");
       if (!target) return;
 
       const action = target.dataset.action;
-      if (action === "open-modal") { openModal(); }
-      if (action === "close-modal") { closeModal(); }
-      if (action === "submit-publish") { handlePublish(); }
+      if (action === "open-modal") { e.preventDefault(); openModal(); }
+      if (action === "close-modal") { e.preventDefault(); closeModal(); }
+      if (action === "submit-publish") { e.preventDefault(); handlePublish(); }
       if (action === "toggle-expand") { state.expandedId = state.expandedId === target.dataset.qid ? null : target.dataset.qid; renderFeed(); }
       if (action === "filter-category") { state.filters.category = target.dataset.category; renderLeftSidebar(); renderFeed(); }
       if (action === "filter-status") { state.filters.status = target.dataset.status; renderLeftSidebar(); renderFeed(); }
@@ -311,6 +310,7 @@
     loadDataFromSupabase();
   }
 
+  // Ejecución segura asegurando la existencia completa del DOM
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
   } else {
