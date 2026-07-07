@@ -1,0 +1,75 @@
+/* ------------------------------------------------------------------ */
+/* TOKENS Y FUENTES                                                   */
+/* ------------------------------------------------------------------ */
+.font-display {
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.font-sans {
+  font-family: "Inter", sans-serif;
+}
+
+/* Recorte de descripción a 2 líneas en las tarjetas colapsadas */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Pulso breve sobre el badge de saldo cuando cambia */
+.balance-pulse {
+  transform: scale(1.1);
+}
+
+/* ------------------------------------------------------------------ */
+/* TOAST DE NOTIFICACIONES                                            */
+/* ------------------------------------------------------------------ */
+.toast-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 1rem;
+  border: 1px solid #d1fae5;
+  background: #ffffff;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 10px 25px -10px rgba(6, 95, 70, 0.15);
+  animation: toast-in 2.6s ease forwards;
+}
+
+.toast-icon {
+  display: flex;
+  height: 2rem;
+  width: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #ecfdf5;
+  flex-shrink: 0;
+}
+
+@keyframes toast-in {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+#modal-overlay ::-webkit-scrollbar {
+  width: 6px;
+}
+#modal-overlay ::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 999px;
+}
