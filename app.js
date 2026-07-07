@@ -4,9 +4,9 @@
    ==================================================================== */
 
 (function() {
-  // 1. CONFIGURACIÓN DIRECTA PARA EL NAVEGADOR (Resuelve 'Failed to fetch' en Vercel)
-  const SUPABASE_URL = "https://carolinatasayco46-wq.supabase.co"; 
-  const SUPABASE_KEY = "sb_publishable_A8eDSgG2V1LwNVpQbprsHQ_0ettD7Z7Gg7iVv_N7Zz7..."; // COMPLETADA: Asegúrate de que termine con tu token real sin recortar
+  // 1. CONFIGURACIÓN CORREGIDA (Resuelve ERR_NAME_NOT_RESOLVED)
+  const SUPABASE_URL = "https://carolinatassaiqo46-wq.supabase.co"; // URL Real corregida según tu panel
+  const SUPABASE_KEY = "sb_publishable_A8eDSgG2V1LwNVpQbprsHQ_0OettsMo";
 
   // 2. CORRECCIÓN DE SYNTAXERROR: Inicialización encapsulada sin usar 'const supabase' global
   if (!window.supabaseClientInstance) {
