@@ -1,5 +1,6 @@
 /* ====================================================================
-   SKILLSWAP — MVP de Trueque de Conocimientos (VERSIÓN CORREGIDA)
+   SKILLSWAP — MVP de Trueque de Conocimientos (VERSIÓN FINAL PRODUCCIÓN)
+   Vanilla JavaScript · Conectado de forma real a las tablas de Supabase
    ==================================================================== */
 
 (function() {
@@ -18,6 +19,7 @@
   const db = window.supabaseClientInstance;
   const CURRENT_USER_ID = "u1";
 
+  // Mapeo de categorías adaptado a tu aplicación
   const CATEGORY_META = {
     Programación: { icon: "code-2", color: "#4F46E5" },
     Matemáticas: { icon: "sigma", color: "#0EA5E9" },
@@ -43,6 +45,7 @@
     u4: { id: "u4", nombre: "Lucía Fernández", avatar: avatar(32), expertise: ["Idiomas"], puntos: 190 },
   };
 
+  // Función de lectura desde la tabla base para evitar problemas de vistas de solo lectura
   async function loadDataFromSupabase() {
     try {
       let { data: publicaciones, error } = await db
@@ -60,10 +63,10 @@
         titulo: p.titulo || "Sin título",
         descripcion: p.descripcion || "",
         categoria: p.categoria || "Programación",
-        puntos: Number(p.puntos) || 0,
-        fecha: p.fecha || new Date().toISOString().slice(0, 10),
+        puntos: Number(p.puntos_ofrecidos) || 0, // Ajustado a tu columna 'puntos_ofrecidos'
+        fecha: p.fecha_creacion ? p.fecha_creacion.slice(0, 10) : new Date().toISOString().slice(0, 10), // Ajustado a tu columna 'fecha_creacion'
         estado: p.estado || "Abierta",
-        destacada: p.destacada === true || p.puntos >= 50,
+        destacada: p.destacada === true || Number(p.puntos_ofrecidos) >= 50,
         respuestas: (p.respuestas || []).map(r => ({
           id: r.id,
           usuarioId: r.usuario_id || "u3",
@@ -105,18 +108,19 @@
     const container = document.getElementById("toast-container");
     if (!container) return;
     const el = document.createElement("div");
-    el.className = "toast-card shadow-md border border-slate-100 p-3 bg-white rounded-xl mb-2 flex items-center";
+    el.className = "toast-card shadow-md border border-slate-100 p-3 bg-white rounded-xl mb-2 flex items-center animate-in fade-in slide-in-from-bottom-2";
     el.innerHTML = `<div><p class="text-sm font-semibold text-slate-900">${escapeHtml(message)}</p></div>`;
     container.appendChild(el);
     setTimeout(() => el.remove(), 2600);
   }
 
+  /* RENDERIZADO COMPLETO */
   function renderUserBar() {
     const u = currentUser();
     const avatarEl = document.getElementById("current-user-avatar");
     const nameEl = document.getElementById("current-user-name");
     const valEl = document.getElementById("balance-value");
-    if (avatarEl) avatarEl.src = u.avatar;
+    if (avatarEl) { avatarEl.src = u.avatar; }
     if (nameEl) nameEl.textContent = u.nombre;
     if (valEl) valEl.textContent = u.puntos;
   }
@@ -219,14 +223,12 @@
 
   function render() { renderUserBar(); renderLeftSidebar(); renderFeed(); renderRightSidebar(); }
 
-  /* ACCIONES DEL MODAL INTERACTIVO */
+  /* LOGICA DEL MODAL */
   function openModal() {
     const overlay = document.getElementById("modal-overlay");
     if (overlay) {
       overlay.classList.remove("hidden");
       overlay.classList.add("flex");
-    } else {
-      console.error("No se encontró el elemento #modal-overlay");
     }
   }
 
@@ -236,14 +238,15 @@
       overlay.classList.remove("flex");
       overlay.classList.add("hidden");
     }
-    const txtTitulo = document.getElementById('form-titulo');
-    const txtDesc = document.getElementById('form-descripcion');
-    if (txtTitulo) txtTitulo.value = "";
-    if (txtDesc) txtDesc.value = "";
+    ['form-titulo', 'form-descripcion'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
     const err = document.getElementById("form-error");
     if (err) err.classList.add("hidden");
   }
 
+  /* ENVÍO DE DATOS OPTIMIZADO PARA LA TABLA REAL Y COLUMNAS EXACTAS */
   async function handlePublish() {
     const titulo = document.getElementById("form-titulo").value.trim();
     const descripcion = document.getElementById("form-descripcion").value.trim();
@@ -260,15 +263,16 @@
     }
 
     try {
+      // AJUSTE CRÍTICO: Insertar en la TABLA física 'publicaciones' usando tus nombres reales de columna
       const { error } = await db.from('publicaciones').insert([
         {
           titulo: titulo,
           descripcion: descripcion,
           categoria: categoria,
-          puntos: puntos,
+          puntos_ofrecidos: puntos, // Corregido de 'puntos' a 'puntos_ofrecidos'
           estado: "Abierta",
           usuario_id: CURRENT_USER_ID,
-          fecha: new Date().toISOString().slice(0, 10)
+          fecha_creacion: new Date().toISOString() // Corregido de 'fecha' a 'fecha_creacion'
         }
       ]);
 
@@ -276,21 +280,20 @@
 
       closeModal();
       pushToast("¡Duda publicada con éxito!");
-      await loadDataFromSupabase();
+      await loadDataFromSupabase(); 
     } catch (err) {
-      console.error(err);
+      console.error("Error detectado en inserción:", err);
       if (errorEl) {
-        errorEl.textContent = "Error al insertar. Revisa la consola.";
+        errorEl.textContent = `Error: ${err.message || 'No se pudo guardar la duda. Revisa las políticas RLS.'}`;
         errorEl.classList.remove("hidden");
       }
     }
   }
 
-  /* INICIALIZACIÓN FRENTE A EVENTOS */
+  /* ESCUCHA DE EVENTOS GLOBALES */
   function init() {
     populateCategoriesSelect();
 
-    // Sistema Alternativo 1: Captura directa por selectores de atributos en todo el DOM
     document.addEventListener("click", (e) => {
       const target = e.target.closest("[data-action]");
       if (!target) return;
@@ -310,7 +313,6 @@
     loadDataFromSupabase();
   }
 
-  // Ejecución segura asegurando la existencia completa del DOM
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
   } else {
