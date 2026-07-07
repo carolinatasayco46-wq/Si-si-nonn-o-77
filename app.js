@@ -6,14 +6,15 @@
 /* ------------------------------------------------------------------ */
 /* CONFIG / METADATA & SUPABASE                                       */
 /* ------------------------------------------------------------------ */
-// REEMPLAZA ESTAS DOS LÍNEAS CON TUS CREDENCIALES REALES DE SUPABASE:
+// 1. REEMPLAZA ESTAS DOS LÍNEAS CON TUS CREDENCIALES REALES DE SUPABASE:
 const SUPABASE_URL = "https://TU_ID_DE_PROYECTO.supabase.co"; 
 const SUPABASE_KEY = "TU_API_KEY_PUBLISHABLE_DE_LA_CAPTURA";
 
-// SOLUCIÓN AL ERROR DE DECLARACIÓN: Validación segura en el entorno global
+// 2. CORRECCIÓN DEFINITIVA: Evita declarar 'const supabase' para que no choque con el navegador
 if (typeof window.supabaseClient === 'undefined') {
   window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
+// Asignamos la referencia sin usar const/let que cause SyntaxError
 var supabase = window.supabaseClient;
 
 const CURRENT_USER_ID = "u1";
@@ -123,7 +124,7 @@ async function loadDataFromSupabase() {
       return;
     }
 
-    // Adaptación automática tolerante a columnas en minúsculas o mayúsculas
+    // Adaptación inteligente tolerante a columnas en minúsculas o mayúsculas
     state.questions = (questions || []).map(q => ({
       id: q.id,
       usuarioId: q.usuarioId || q.usuarioid || "u2",
@@ -216,7 +217,7 @@ function renderQuestionCard(q) {
   const expanded = state.expandedId === q.id;
 
   return `
-  <div class="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-indigo-200">
+  <div class="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-indigo-200 shadow-sm">
     <div class="flex items-start gap-3">
       <img src="${author.avatar}" class="h-[42px] w-[42px] rounded-full object-cover" />
       <div class="min-w-0 flex-1">
@@ -226,13 +227,13 @@ function renderQuestionCard(q) {
         </button>
         <p class="mt-1.5 text-sm text-slate-600 ${expanded ? "" : "line-clamp-2"}">${escapeHtml(q.descripcion)}</p>
         <div class="mt-3 flex items-center gap-2">
-          <span class="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700"><i data-lucide="${meta.icon}" class="h-3 w-3"></i> ${q.categoria}</span>
+          <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style="background-color:${meta.color}14; color:${meta.color}"><i data-lucide="${meta.icon}" class="h-3 w-3"></i> ${q.categoria}</span>
           <span class="ml-auto inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white"><i data-lucide="coins" class="h-3 w-3"></i> ${q.puntos} pts</span>
         </div>
       </div>
     </div>
     <div class="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
-      <button data-action="toggle-expand" data-qid="${q.id}" class="flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700">${expanded ? "Ocultar" : "Responder"}</button>
+      <button data-action="toggle-expand" data-qid="${q.id}" class="flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 transition">${expanded ? "Ocultar" : "Responder / Ayudar"}</button>
     </div>
   </div>`;
 }
@@ -248,7 +249,7 @@ function renderFeed() {
   if (filtered.length === 0) {
     list.innerHTML = `
       <div class="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
-        <p class="font-bold text-slate-700">Sin dudas registradas</p>
+        <p class="font-bold text-slate-700">Sin dudas registradas en tus filtros o base de datos</p>
       </div>`;
   } else {
     list.innerHTML = filtered.map(renderQuestionCard).join("");
@@ -290,7 +291,7 @@ function updateFormHint() {
   const puntosEl = document.getElementById("form-puntos");
   const hintEl = document.getElementById("form-hint");
   if (!puntosEl || !hintEl) return;
-  hintEl.innerHTML = `Al publicar se descontarán <b>${puntosEl.value} pts</b> de tu saldo temporal.`;
+  hintEl.innerHTML = `Al publicar se descontarán <b>${puntosEl.value} pts</b> de tu saldo temporal en la nube.`;
 }
 
 function openModal() {
@@ -313,7 +314,7 @@ async function submitPublish() {
   const errorEl = document.getElementById("form-error");
 
   if (!titulo || !descripcion) {
-    if (errorEl) { errorEl.textContent = "Completa los campos."; errorEl.classList.remove("hidden"); }
+    if (errorEl) { errorEl.textContent = "Completa todos los campos obligatorios."; errorEl.classList.remove("hidden"); }
     return;
   }
 
@@ -332,7 +333,7 @@ async function submitPublish() {
     closeModal();
     await loadDataFromSupabase();
     bumpBalance();
-    pushToast("Publicado con éxito en la nube");
+    pushToast("Publicado con éxito en Supabase");
   } catch (err) {
     if (errorEl) { errorEl.textContent = err.message; errorEl.classList.remove("hidden"); }
   }
