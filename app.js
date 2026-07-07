@@ -62,9 +62,9 @@
         usuarioId: p.usuario_id || "u2", 
         titulo: p.titulo || "Sin título",
         descripcion: p.descripcion || "",
-        categoria: p.categoria || "Programación",
-        puntos: Number(p.puntos_ofrecidos) || 0, // Ajustado a tu columna 'puntos_ofrecidos'
-        fecha: p.fecha_creacion ? p.fecha_creacion.slice(0, 10) : new Date().toISOString().slice(0, 10), // Ajustado a tu columna 'fecha_creacion'
+        categoria: p.categorias || "Programación", // CORREGIDO: cambiado de p.categoria a p.categorias
+        puntos: Number(p.puntos_ofrecidos) || 0, 
+        fecha: p.fecha_creacion ? p.fecha_creacion.slice(0, 10) : new Date().toISOString().slice(0, 10), 
         estado: p.estado || "Abierta",
         destacada: p.destacada === true || Number(p.puntos_ofrecidos) >= 50,
         respuestas: (p.respuestas || []).map(r => ({
@@ -263,16 +263,16 @@
     }
 
     try {
-      // AJUSTE CRÍTICO: Insertar en la TABLA física 'publicaciones' usando tus nombres reales de columna
+      // CORREGIDO: Ahora inserta el valor en la columna 'categorias' (en plural) para coincidir con tu base de datos.
       const { error } = await db.from('publicaciones').insert([
         {
           titulo: titulo,
           descripcion: descripcion,
-          categoria: categoria,
-          puntos_ofrecidos: puntos, // Corregido de 'puntos' a 'puntos_ofrecidos'
+          categorias: categoria, // Cambiado de 'categoria' a 'categorias'
+          puntos_ofrecidos: puntos, 
           estado: "Abierta",
           usuario_id: CURRENT_USER_ID,
-          fecha_creacion: new Date().toISOString() // Corregido de 'fecha' a 'fecha_creacion'
+          fecha_creacion: new Date().toISOString() 
         }
       ]);
 
