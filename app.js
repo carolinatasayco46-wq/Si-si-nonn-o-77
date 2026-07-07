@@ -21,13 +21,24 @@
 
   // Mapeo de categorías adaptado a tu aplicación
   const CATEGORY_META = {
-    Programación: { icon: "code-2", color: "#4F46E5" },
-    Matemáticas: { icon: "sigma", color: "#0EA5E9" },
-    Idiomas: { icon: "languages", color: "#F59E0B" },
-    Diseño: { icon: "palette", color: "#EC4899" },
-    Ciencias: { icon: "flask-conical", color: "#10B981" },
-    Música: { icon: "music-2", color: "#8B5CF6" },
+    Programación: { id: 1, icon: "code-2", color: "#4F46E5" },
+    Matemáticas: { id: 2, icon: "sigma", color: "#0EA5E9" },
+    Idiomas: { id: 3, icon: "languages", color: "#F59E0B" },
+    Diseño: { id: 4, icon: "palette", color: "#EC4899" },
+    Ciencias: { id: 5, icon: "flask-conical", color: "#10B981" },
+    Música: { id: 6, icon: "music-2", color: "#8B5CF6" },
   };
+  
+  // Diccionario inverso para convertir el ID numérico de la BD de vuelta a texto en el Front
+  const ID_TO_CATEGORY = {
+    1: "Programación",
+    2: "Matemáticas",
+    3: "Idiomas",
+    4: "Diseño",
+    5: "Ciencias",
+    6: "Música"
+  };
+
   const CATEGORIES = Object.keys(CATEGORY_META);
   const avatar = (seed) => `https://i.pravatar.cc/150?img=${seed}`;
 
@@ -57,24 +68,29 @@
         return;
       }
 
-      state.questions = (publicaciones || []).map(p => ({
-        id: p.id,
-        usuarioId: p.usuario_id || "u2", 
-        titulo: p.titulo || "Sin título",
-        descripcion: p.descripcion || "",
-        categoria: p.categoria || "Programación", // Ajustado a 'categoria' en singular según tu BD
-        puntos: Number(p.puntos_ofrecidos) || 0, 
-        fecha: p.fecha_creacion ? p.fecha_creacion.slice(0, 10) : new Date().toISOString().slice(0, 10), 
-        estado: p.estado || "Abierta",
-        destacada: p.destacada === true || Number(p.puntos_ofrecidos) >= 50,
-        respuestas: (p.respuestas || []).map(r => ({
-          id: r.id,
-          usuarioId: r.usuario_id || "u3",
-          contenido: r.contenido || r.texto || "",
-          fecha: r.fecha || new Date().toISOString().slice(0, 10),
-          esAceptada: r.es_aceptada === true
-        }))
-      })).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+      state.questions = (publicaciones || []).map(p => {
+        // Convertimos el id numérico de la base de datos al nombre legible en el Front
+        const nombreCategoria = ID_TO_CATEGORY[p.categoria_id] || "Programación";
+
+        return {
+          id: p.id,
+          usuarioId: p.usuario_id || "u2", 
+          titulo: p.titulo || "Sin título",
+          descripcion: p.descripcion || "",
+          categoria: nombreCategoria, 
+          puntos: Number(p.puntos_ofrecidos) || 0, 
+          fecha: p.fecha_creacion ? p.fecha_creacion.slice(0, 10) : new Date().toISOString().slice(0, 10), 
+          estado: p.estado || "Abierta",
+          destacada: p.destacada === true || Number(p.puntos_ofrecidos) >= 50,
+          respuestas: (p.respuestas || []).map(r => ({
+            id: r.id,
+            usuarioId: r.usuario_id || "u3",
+            contenido: r.contenido || r.texto || "",
+            fecha: r.fecha || new Date().toISOString().slice(0, 10),
+            esAceptada: r.es_aceptada === true
+          }))
+        };
+      }).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
       state.users = fallbackUsers; 
       render();
@@ -250,7 +266,7 @@
   async function handlePublish() {
     const titulo = document.getElementById("form-titulo").value.trim();
     const descripcion = document.getElementById("form-descripcion").value.trim();
-    const categoria = document.getElementById("form-categoria").value;
+    const categoriaTexto = document.getElementById("form-categoria").value;
     const puntos = parseInt(document.getElementById("form-puntos").value) || 20;
     const errorEl = document.getElementById("form-error");
 
@@ -262,13 +278,16 @@
       return;
     }
 
+    // Buscamos el ID numérico correspondiente al nombre de la categoría elegida
+    const categoriaIdNum = CATEGORY_META[categoriaTexto]?.id || 1;
+
     try {
-      // AJUSTADO: Se envía como 'categoria' en singular para que coincida con la columna real de la tabla 'publicaciones'
+      // CORREGIDO COMPLETO: Ahora apunta exactamente a 'categoria_id' con su valor numérico correspondiente
       const { error } = await db.from('publicaciones').insert([
         {
           titulo: titulo,
           descripcion: descripcion,
-          categoria: categoria, // Cambiado de nuevo a 'categoria' en singular
+          categoria_id: categoriaIdNum, // Guardamos el número correcto
           puntos_ofrecidos: puntos, 
           estado: "Abierta",
           usuario_id: CURRENT_USER_ID,
