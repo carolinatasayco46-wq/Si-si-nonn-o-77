@@ -29,15 +29,15 @@ const CATEGORIES = Object.keys(CATEGORY_META);
 /* ESTADO GLOBAL (Mantenemos los filtros y la UI)                     */
 /* ------------------------------------------------------------------ */
 const state = {
-  users: {}, // Se rellenará desde la base de datos o se mantendrá una simulación
-  questions: [], // Ahora vendrán directamente de Supabase
+  users: {}, 
+  questions: [], 
   filters: { category: "Todas", status: "Todas", search: "" },
   expandedId: null,
   drafts: {},
   modalOpen: false,
 };
 
-// Usuarios por defecto en caso de que no uses tabla de usuarios aún
+// Usuarios simulados para asociar los avatares e información estética
 const fallbackUsers = {
   u1: { id: "u1", nombre: "Tú", avatar: "https://i.pravatar.cc/150?img=12", expertise: ["Programación", "Diseño"], puntos: 100 },
   u2: { id: "u2", nombre: "Marina Vidal", avatar: "https://i.pravatar.cc/150?img=47", expertise: ["Matemáticas"], puntos: 260 },
@@ -56,6 +56,7 @@ function currentUser() {
 }
 
 function escapeHtml(str) {
+  if (!str) return "";
   const div = document.createElement("div");
   div.textContent = str;
   return div.innerHTML;
@@ -73,7 +74,7 @@ function getFilteredQuestions() {
     .filter((q) => {
       if (!search.trim()) return true;
       const s = search.toLowerCase();
-      return q.titulo.toLowerCase().includes(s) || q.descripcion.toLowerCase().includes(s);
+      return (q.titulo && q.titulo.toLowerCase().includes(s)) || (q.descripcion && q.descripcion.toLowerCase().includes(s));
     });
 }
 
@@ -86,6 +87,7 @@ function refreshIcons() {
 /* ------------------------------------------------------------------ */
 function pushToast(message, sub) {
   const container = document.getElementById("toast-container");
+  if (!container) return;
   const el = document.createElement("div");
   el.className = "toast-card";
   el.innerHTML = `
@@ -102,6 +104,7 @@ function pushToast(message, sub) {
 
 function bumpBalance() {
   const badge = document.getElementById("balance-badge");
+  if (!badge) return;
   badge.classList.add("balance-pulse");
   setTimeout(() => badge.classList.remove("balance-pulse"), 350);
 }
@@ -111,20 +114,35 @@ function bumpBalance() {
 /* ------------------------------------------------------------------ */
 async function loadDataFromSupabase() {
   try {
-    // 1. Cargamos las dudas desde la tabla 'questions' ordenadas por fecha reciente
-    let { data: questions, error: qError } = await supabase
+    // Consultamos la tabla 'questions' y traemos todas sus filas
+    let { data: questions, error } = await supabase
       .from('questions')
-      .select('*, respuestas(*)') // Trae la pregunta y sus respuestas asociadas
+      .select('*')
       .order('fecha', { ascending: false });
 
-    if (qError) throw qError;
+    if (error) {
+      console.error("Error al leer Supabase:", error.message);
+      return;
+    }
 
-    state.questions = questions || [];
-    state.users = fallbackUsers; // Mantenemos los avatares simulados vinculados por ID
-    
+    // Mapeo flexible para tolerar nombres de columnas en mayúsculas o minúsculas desde Supabase
+    state.questions = (questions || []).map(q => ({
+      id: q.id,
+      usuarioId: q.usuarioId || q.usuarioid || "u2",
+      titulo: q.titulo || "Sin título",
+      descripcion: q.descripcion || "",
+      categoria: q.categoria || "Programación",
+      puntos: Number(q.puntos) || 0,
+      fecha: q.fecha || new Date().toISOString().slice(0, 10),
+      estado: q.estado || "Abierta",
+      destacada: q.destacada === true,
+      respuestas: [] // Inicialmente vacío o se puede expandir si manejas la tabla respuestas
+    }));
+
+    state.users = fallbackUsers;
     render();
   } catch (err) {
-    console.error("Error conectando con Supabase:", err.message);
+    console.error("Error crítico de inicialización:", err);
   }
 }
 
@@ -133,10 +151,13 @@ async function loadDataFromSupabase() {
 /* ------------------------------------------------------------------ */
 function renderUserBar() {
   const u = currentUser();
-  document.getElementById("current-user-avatar").src = u.avatar;
-  document.getElementById("current-user-avatar").alt = u.nombre;
-  document.getElementById("current-user-name").textContent = u.nombre;
-  document.getElementById("balance-value").textContent = u.puntos;
+  const avatarEl = document.getElementById("current-user-avatar");
+  const nameEl = document.getElementById("current-user-name");
+  const valEl = document.getElementById("balance-value");
+  
+  if (avatarEl) { avatarEl.src = u.avatar; avatarEl.alt = u.nombre; }
+  if (nameEl) nameEl.textContent = u.nombre;
+  if (valEl) valEl.textContent = u.puntos;
 }
 
 function renderLeftSidebar() {
@@ -160,7 +181,9 @@ function renderLeftSidebar() {
       </button>`;
     })
     .join("");
-  document.getElementById("status-filters").innerHTML = statusHtml;
+  
+  const statusContainer = document.getElementById("status-filters");
+  if (statusContainer) statusContainer.innerHTML = statusHtml;
 
   const allActive = state.filters.category === "Todas";
   let catHtml = `
@@ -170,6 +193,7 @@ function renderLeftSidebar() {
       }">
       <i data-lucide="sparkles" class="h-[15px] w-[15px]"></i> Todas
     </button>`;
+    
   catHtml += CATEGORIES.map((cat) => {
     const meta = CATEGORY_META[cat];
     const active = state.filters.category === cat;
@@ -181,7 +205,9 @@ function renderLeftSidebar() {
         <i data-lucide="${meta.icon}" class="h-4 w-4" style="color:${meta.color}"></i> ${cat}
       </button>`;
   }).join("");
-  document.getElementById("category-filters").innerHTML = catHtml;
+  
+  const categoryContainer = document.getElementById("category-filters");
+  if (categoryContainer) categoryContainer.innerHTML = catHtml;
 
   refreshIcons();
 }
@@ -189,41 +215,9 @@ function renderLeftSidebar() {
 function renderQuestionCard(q) {
   const author = state.users[q.usuarioId] || fallbackUsers.u2;
   const meta = CATEGORY_META[q.categoria] || { icon: "help-circle", color: "#64748B" };
-  const isAuthor = q.usuarioId === CURRENT_USER_ID;
   const isResolved = q.estado === "Resuelta";
   const expanded = state.expandedId === q.id;
-
   const respuestasArray = q.respuestas || [];
-
-  const answersHtml = respuestasArray
-    .map((r) => {
-      const responder = state.users[r.usuarioId] || fallbackUsers.u3;
-      return `
-      <div class="rounded-xl border p-3 ${r.esAceptada ? "border-emerald-200 bg-emerald-50/50" : "border-slate-200 bg-slate-50/60"}">
-        <div class="flex items-start gap-2.5">
-          <img src="${responder.avatar}" alt="${responder.nombre}" class="h-[30px] w-[30px] rounded-full object-cover" />
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="text-sm font-semibold text-slate-800">${responder.nombre}</span>
-              <span class="text-xs text-slate-400">· ${r.fecha}</span>
-              ${r.esAceptada ? '<span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700"><i data-lucide="badge-check" class="h-[11px] w-[11px]"></i> Respuesta útil</span>' : ""}
-            </div>
-            <p class="mt-1 text-sm text-slate-600">${escapeHtml(r.contenido)}</p>
-          </div>
-          ${
-            isAuthor && !isResolved && !r.esAceptada
-              ? `<button data-action="accept-answer" data-qid="${q.id}" data-aid="${r.id}"
-                  class="flex shrink-0 items-center gap-1 rounded-lg bg-emerald-500 px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-600">
-                  <i data-lucide="check-circle-2" class="h-[13px] w-[13px]"></i> Marcar útil
-                </button>`
-              : ""
-          }
-        </div>
-      </div>`;
-    })
-    .join("");
-
-  const draftValue = state.drafts[q.id] || "";
 
   return `
   <div class="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-indigo-200 hover:shadow-sm">
@@ -250,7 +244,7 @@ function renderQuestionCard(q) {
             <i data-lucide="message-circle" class="h-[13px] w-[13px]"></i> ${respuestasArray.length} respuestas
           </span>
           <span class="ml-auto inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white">
-            <i data-lucide="coins" class="h-[13px] w-[13px]"></i> ${q.puntos} pts en juego
+            <i data-lucide="coins" class="h-[13px] w-[13px]"></i> ${q.puntos} pts
           </span>
         </div>
       </div>
@@ -258,52 +252,25 @@ function renderQuestionCard(q) {
 
     <div class="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
       <button data-action="toggle-expand" data-qid="${q.id}" class="flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100">
-        <i data-lucide="message-circle" class="h-[14px] w-[14px]"></i> ${expanded ? "Ocultar" : "Ayudar / Responder"}
+        <i data-lucide="message-circle" class="h-3.5 w-3.5"></i> ${expanded ? "Ocultar" : "Ayudar / Responder"}
       </button>
     </div>
-
-    ${
-      expanded
-        ? `
-    <div class="mt-4 space-y-3 border-t border-slate-100 pt-4">
-      ${respuestasArray.length === 0 ? '<p class="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">Todavía nadie respondió esta duda. ¡Sé el primero en ayudar!</p>' : ""}
-      ${answersHtml}
-      ${
-        !isResolved
-          ? `
-      <div class="flex items-start gap-2.5 pt-1">
-        <img src="${currentUser().avatar}" alt="${currentUser().nombre}" class="h-[30px] w-[30px] rounded-full object-cover" />
-        <div class="flex-1">
-          <textarea data-draft-for="${q.id}" rows="2"
-            placeholder="${isAuthor ? "Añade una aclaración a tu propia duda…" : "Comparte tu conocimiento para ayudar…"}"
-            class="w-full resize-none rounded-xl border border-slate-200 bg-white p-2.5 text-sm text-slate-700 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100">${escapeHtml(draftValue)}</textarea>
-          <div class="mt-1.5 flex justify-end">
-            <button data-action="submit-answer" data-qid="${q.id}"
-              class="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-indigo-700">
-              <i data-lucide="send" class="h-[13px] w-[13px]"></i> Enviar respuesta
-            </button>
-          </div>
-        </div>
-      </div>`
-          : ""
-      }
-    </div>`
-        : ""
-    }
   </div>`;
 }
 
 function renderFeed() {
   const filtered = getFilteredQuestions();
-  const countLabel = `${filtered.length} ${filtered.length === 1 ? "duda encontrada" : "dudas encontradas"}`;
-  document.getElementById("feed-count").textContent = countLabel;
+  const countEl = document.getElementById("feed-count");
+  if (countEl) countEl.textContent = `${filtered.length} ${filtered.length === 1 ? "duda encontrada" : "dudas encontradas"}`;
 
   const list = document.getElementById("feed-list");
+  if (!list) return;
+
   if (filtered.length === 0) {
     list.innerHTML = `
       <div class="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
         <p class="font-display text-base font-bold text-slate-700">Ninguna duda coincide con tu filtro</p>
-        <p class="mt-1 text-sm text-slate-500">Prueba con otra categoría o cambia tu búsqueda.</p>
+        <p class="mt-1 text-sm text-slate-500">Asegúrate de tener registros guardados en tu panel de Supabase.</p>
       </div>`;
   } else {
     list.innerHTML = filtered.map(renderQuestionCard).join("");
@@ -331,7 +298,9 @@ function renderRightSidebar() {
     </div>`
     )
     .join("");
-  document.getElementById("ranking-list").innerHTML = html;
+    
+  const rankList = document.getElementById("ranking-list");
+  if (rankList) rankList.innerHTML = html;
   refreshIcons();
 }
 
@@ -347,35 +316,46 @@ function render() {
 /* ------------------------------------------------------------------ */
 function populateCategorySelect() {
   const select = document.getElementById("form-categoria");
-  select.innerHTML = CATEGORIES.map((c) => `<option value="${c}">${c}</option>`).join("");
+  if (select) select.innerHTML = CATEGORIES.map((c) => `<option value="${c}">${c}</option>`).join("");
 }
 
 function updateFormHint() {
-  const puntos = Number(document.getElementById("form-puntos").value) || 0;
-  document.getElementById("form-hint").innerHTML =
-    `Al publicar se descontarán <b>${puntos} pts</b> de tu saldo actual (${currentUser().puntos} pts). ` +
-    `Los recuperas si tu duda queda resuelta y decides marcar una respuesta como útil.`;
+  const puntosEl = document.getElementById("form-puntos");
+  const hintEl = document.getElementById("form-hint");
+  if (!puntosEl || !hintEl) return;
+  
+  const puntos = Number(puntosEl.value) || 0;
+  hintEl.innerHTML = `Al publicar se descontarán <b>${puntos} pts</b> de tu saldo actual (${currentUser().puntos} pts). Sincronizado en la nube con Supabase.`;
 }
 
 function openModal() {
-  document.getElementById("form-titulo").value = "";
-  document.getElementById("form-descripcion").value = "";
-  document.getElementById("form-puntos").value = 20;
+  const t = document.getElementById("form-titulo");
+  const d = document.getElementById("form-descripcion");
+  const p = document.getElementById("form-puntos");
+  const err = document.getElementById("form-error");
+  
+  if (t) t.value = "";
+  if (d) d.value = "";
+  if (p) p.value = 20;
   populateCategorySelect();
   updateFormHint();
-  document.getElementById("form-error").classList.add("hidden");
+  if (err) err.classList.add("hidden");
+  
   const overlay = document.getElementById("modal-overlay");
-  overlay.classList.remove("hidden");
-  overlay.classList.add("flex");
+  if (overlay) {
+    overlay.classList.remove("hidden");
+    overlay.classList.add("flex");
+  }
 }
 
 function closeModal() {
   const overlay = document.getElementById("modal-overlay");
-  overlay.classList.add("hidden");
-  overlay.classList.remove("flex");
+  if (overlay) {
+    overlay.classList.add("hidden");
+    overlay.classList.remove("flex");
+  }
 }
 
-// GUARDA DE VERDAD EN LA BASE DE DATOS
 async function submitPublish() {
   const titulo = document.getElementById("form-titulo").value.trim();
   const descripcion = document.getElementById("form-descripcion").value.trim();
@@ -384,6 +364,7 @@ async function submitPublish() {
   const errorEl = document.getElementById("form-error");
 
   const showError = (msg) => {
+    if (!errorEl) return;
     errorEl.textContent = msg;
     errorEl.classList.remove("hidden");
   };
@@ -393,16 +374,17 @@ async function submitPublish() {
   if (puntos > currentUser().puntos) return showError(`No tienes suficiente saldo.`);
 
   try {
-    // Insertar en tu tabla de Supabase
-    const { data, error } = await supabase
+    // Inserta una fila estructurada en tu tabla local (enviamos ambos formatos de columna para prevenir fallos de BD)
+    const { error } = await supabase
       .from('questions')
       .insert([
         {
           usuarioId: CURRENT_USER_ID,
-          titulo,
-          descripcion,
-          categoria,
-          puntos,
+          usuarioid: CURRENT_USER_ID,
+          titulo: titulo,
+          descripcion: descripcion,
+          categoria: categoria,
+          puntos: puntos,
           fecha: new Date().toISOString().slice(0, 10),
           estado: "Abierta",
           destacada: false
@@ -414,49 +396,17 @@ async function submitPublish() {
     fallbackUsers[CURRENT_USER_ID].puntos -= puntos;
     closeModal();
     
-    // Recargar datos frescos de la nube
-    await loadDataFromSupabase();
-    
+    await loadDataFromSupabase(); // Recarga y re-renderiza el feed directo de la nube
     bumpBalance();
-    pushToast(`Duda publicada en la nube: -${puntos} pts`, "Sincronizado con Supabase");
+    pushToast(`Duda publicada en la nube: -${puntos} pts`);
   } catch (err) {
     showError("Error en base de datos: " + err.message);
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* ACCIONES                                                           */
-/* ------------------------------------------------------------------ */
 function toggleExpand(qId) {
   state.expandedId = state.expandedId === qId ? null : qId;
   renderFeed();
-}
-
-async function submitAnswer(qId) {
-  const contenido = (state.drafts[qId] || "").trim();
-  if (!contenido) return;
-
-  try {
-    const { error } = await supabase
-      .from('respuestas')
-      .insert([
-        {
-          question_id: qId,
-          usuarioId: CURRENT_USER_ID,
-          contenido,
-          fecha: new Date().toISOString().slice(0, 10),
-          esAceptada: false
-        }
-      ]);
-
-    if (error) throw error;
-
-    state.drafts[qId] = "";
-    await loadDataFromSupabase();
-    pushToast("Respuesta enviada a Supabase", "Guardada correctamente");
-  } catch(err) {
-    console.error("Error al responder:", err.message);
-  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -490,16 +440,16 @@ document.addEventListener("click", (e) => {
     case "toggle-expand":
       toggleExpand(target.dataset.qid);
       break;
-    case "submit-answer":
-      submitAnswer(target.dataset.qid);
-      break;
   }
 });
 
-document.getElementById("search-input").addEventListener("input", (e) => {
-  state.filters.search = e.target.value;
-  renderFeed();
-});
+const searchInp = document.getElementById("search-input");
+if (searchInp) {
+  searchInp.addEventListener("input", (e) => {
+    state.filters.search = e.target.value;
+    renderFeed();
+  });
+}
 
 document.addEventListener("input", (e) => {
   if (e.target.matches("[data-draft-for]")) {
@@ -510,15 +460,18 @@ document.addEventListener("input", (e) => {
   }
 });
 
-document.getElementById("modal-overlay").addEventListener("click", (e) => {
-  if (e.target.id === "modal-overlay") closeModal();
-});
+const overlayEl = document.getElementById("modal-overlay");
+if (overlayEl) {
+  overlayEl.addEventListener("click", (e) => {
+    if (e.target.id === "modal-overlay") closeModal();
+  });
+}
 
 /* ------------------------------------------------------------------ */
 /* INIT                                                               */
 /* ------------------------------------------------------------------ */
 function init() {
-  loadDataFromSupabase(); // Llama a la base de datos directo al iniciar
+  loadDataFromSupabase();
   refreshIcons();
 }
 
