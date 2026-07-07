@@ -62,7 +62,7 @@
         usuarioId: p.usuario_id || "u2", 
         titulo: p.titulo || "Sin título",
         descripcion: p.descripcion || "",
-        categoria: p.categorias || "Programación", // CORREGIDO: cambiado de p.categoria a p.categorias
+        categoria: p.categoria || "Programación", // Ajustado a 'categoria' en singular según tu BD
         puntos: Number(p.puntos_ofrecidos) || 0, 
         fecha: p.fecha_creacion ? p.fecha_creacion.slice(0, 10) : new Date().toISOString().slice(0, 10), 
         estado: p.estado || "Abierta",
@@ -263,12 +263,12 @@
     }
 
     try {
-      // CORREGIDO: Ahora inserta el valor en la columna 'categorias' (en plural) para coincidir con tu base de datos.
+      // AJUSTADO: Se envía como 'categoria' en singular para que coincida con la columna real de la tabla 'publicaciones'
       const { error } = await db.from('publicaciones').insert([
         {
           titulo: titulo,
           descripcion: descripcion,
-          categorias: categoria, // Cambiado de 'categoria' a 'categorias'
+          categoria: categoria, // Cambiado de nuevo a 'categoria' en singular
           puntos_ofrecidos: puntos, 
           estado: "Abierta",
           usuario_id: CURRENT_USER_ID,
