@@ -4,11 +4,11 @@
    ==================================================================== */
 
 (function() {
-  // 1. CONFIGURACIÓN CORREGIDA CON LA URL REAL DE TU PANEL
-  const SUPABASE_URL = "https://carolinatassaiqo46-wq.supabase.co"; 
-  const SUPABASE_KEY = "sb_publishable_A8eDSgG2V1LwNVpQbprsHQ_0OettsMo"; // REEMPLAZA AQUÍ CON TU CLAVE COMPLETA
+  // 1. CONFIGURACIÓN 100% REAL (Conectado a tu proyecto 'radvowugwrkdddmbpapz')
+  const SUPABASE_URL = "https://radvowugwrkdddmbpapz.supabase.co"; 
+  const SUPABASE_KEY = "sb_publishable_A8eDSgG2V1LwNVpQbprsHQ_0OettsMo"; 
 
-  // 2. CORRECCIÓN DE SYNTAXERROR: Inicialización encapsulada sin usar 'const supabase' global
+  // 2. EVITAR SYNTAXERROR: Inicialización segura sin colisionar con variables globales
   if (!window.supabaseClientInstance) {
     if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
       window.supabaseClientInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -18,7 +18,6 @@
     }
   }
   
-  // Instancia interna aislada de la base de datos
   const db = window.supabaseClientInstance;
   const CURRENT_USER_ID = "u1";
 
@@ -52,7 +51,6 @@
   /* CARGA DE DATOS REALES DESDE LAS TABLAS EN ESPAÑOL DE SUPABASE */
   async function loadDataFromSupabase() {
     try {
-      // Consulta relacional nativa: Trae las publicaciones junto a sus respuestas asociadas
       let { data: publicaciones, error } = await db
         .from('publicaciones')
         .select('*, respuestas(*)');
@@ -62,7 +60,6 @@
         return;
       }
 
-      // Mapeamos los campos de tu base de datos real a las propiedades de la interfaz
       state.questions = (publicaciones || []).map(p => ({
         id: p.id,
         usuarioId: p.usuario_id || "u2", 
@@ -195,12 +192,13 @@
     </div>`;
   }
 
+  /* REPRODUCIR FEED PRINCIPAL */
   function renderFeed() {
     const filtered = getFilteredQuestions();
     const countEl = document.getElementById("feed-count");
     if (countEl) countEl.textContent = `${filtered.length} dudas encontradas`;
     const list = document.getElementById("feed-list");
-    if (list) list.innerHTML = filtered.length === 0 ? '<div class="p-5 text-center bg-white border rounded-xl">Sin dudas cargadas.</div>' : filtered.map(renderQuestionCard).join("");
+    if (list) list.innerHTML = filtered.length === 0 ? '<div class="p-5 text-center bg-white border rounded-xl">Sin dudas cargadas en la base de datos.</div>' : filtered.map(renderQuestionCard).join("");
     refreshIcons();
   }
 
@@ -216,19 +214,19 @@
 
   function render() { renderUserBar(); renderLeftSidebar(); renderFeed(); renderRightSidebar(); }
 
-  /* GESTORES DE ACCIONES REALES EN LA BD */
+  /* PROCESOS DE ACTUALIZACIÓN */
   async function acceptAnswer(qId, aId) {
     try {
       await db.from('respuestas').update({ es_aceptada: true }).eq('id', aId);
       await db.from('publicaciones').update({ estado: "Resuelta" }).eq('id', qId);
-      pushToast("¡Solución aceptada con éxito!");
+      pushToast("¡Solución aceptada!");
       await loadDataFromSupabase();
     } catch (err) {
       console.error(err);
     }
   }
 
-  /* ESCUCHADORES DE EVENTOS */
+  /* EVENT LISTENERS */
   document.addEventListener("click", (e) => {
     const target = e.target.closest("[data-action]");
     if (!target) return;
