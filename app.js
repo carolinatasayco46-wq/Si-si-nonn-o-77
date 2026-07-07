@@ -1,25 +1,24 @@
-// ====================================================================
-// SKILLSWAP — MVP de Trueque de Conocimientos (PRODUCCIÓN VERCEL)
-// ====================================================================
+/* ====================================================================
+   SKILLSWAP — MVP de Trueque de Conocimientos (VERSIÓN FINAL PRODUCCIÓN)
+   Vanilla JavaScript · Conectado de forma real a las tablas de Supabase
+   ==================================================================== */
 
 (function() {
-  // Vercel inyecta las variables en process.env, si usas un empaquetador. 
-  // Si usas JS Vanilla puro en HTML, Vercel requiere que las leamos del entorno o usar placeholders alternativos.
-  // Para evitar que falle en el cliente, leemos de las variables del sistema o de la ventana:
-  const SUPABASE_URL = window.ENV_SUPABASE_URL || "https://carolinatasayco46-wq.supabase.co"; 
-  const SUPABASE_KEY = window.ENV_SUPABASE_KEY || "sb_publishable_A8eDSgG2V1LwNVpQbprsHQ_0ett..."; // Mantén tu fallback temporal seguro si no usas bundler
+  // 1. CONFIGURACIÓN DIRECTA PARA EL NAVEGADOR (Resuelve 'Failed to fetch' en Vercel)
+  const SUPABASE_URL = "https://carolinatasayco46-wq.supabase.co"; 
+  const SUPABASE_KEY = "sb_publishable_A8eDSgG2V1LwNVpQbprsHQ_0ettD7Z7Gg7iVv_N7Zz7..."; // COMPLETADA: Asegúrate de que termine con tu token real sin recortar
 
-  // Inicialización ultra segura inyectando una propiedad única en window para no romper la línea 1
+  // 2. CORRECCIÓN DE SYNTAXERROR: Inicialización encapsulada sin usar 'const supabase' global
   if (!window.supabaseClientInstance) {
     if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
       window.supabaseClientInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     } else {
-      console.error("La librería de Supabase no se ha cargado correctamente en el HTML.");
+      console.error("Error: La librería CDN de Supabase no se detecta en el index.html");
       return;
     }
   }
   
-  // Usamos 'db' internamente. Adiós al error "Identifier 'supabase' has already been declared"
+  // Instancia interna aislada de la base de datos
   const db = window.supabaseClientInstance;
   const CURRENT_USER_ID = "u1";
 
@@ -50,18 +49,20 @@
     u4: { id: "u4", nombre: "Lucía Fernández", avatar: avatar(32), expertise: ["Idiomas"], puntos: 190 },
   };
 
-  /* CARGA DE DATOS REALES DESDE SUPABASE (TABLA PUBLICACIONES) */
+  /* CARGA DE DATOS REALES DESDE LAS TABLAS EN ESPAÑOL DE SUPABASE */
   async function loadDataFromSupabase() {
     try {
+      // Consulta relacional nativa: Trae las publicaciones junto a sus respuestas asociadas
       let { data: publicaciones, error } = await db
         .from('publicaciones')
         .select('*, respuestas(*)');
 
       if (error) {
-        console.error("Error al consultar Supabase:", error.message);
+        console.error("Error de lectura en Supabase:", error.message);
         return;
       }
 
+      // Mapeamos los campos de tu base de datos real a las propiedades de la interfaz
       state.questions = (publicaciones || []).map(p => ({
         id: p.id,
         usuarioId: p.usuario_id || "u2", 
@@ -84,7 +85,7 @@
       state.users = fallbackUsers; 
       render();
     } catch (err) {
-      console.error("Error crítico de sincronización:", err);
+      console.error("Error crítico en la sincronización del Feed:", err);
     }
   }
 
@@ -109,7 +110,17 @@
 
   function refreshIcons() { if (window.lucide) window.lucide.createIcons(); }
 
-  /* RENDERS DE LA INTERFAZ */
+  function pushToast(message) {
+    const container = document.getElementById("toast-container");
+    if (!container) return;
+    const el = document.createElement("div");
+    el.className = "toast-card shadow-md border border-slate-100 p-3 bg-white rounded-xl mb-2 flex items-center";
+    el.innerHTML = `<div><p class="text-sm font-semibold text-slate-900">${escapeHtml(message)}</p></div>`;
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 2600);
+  }
+
+  /* RENDERS DE COMPONENTES DE INTERFAZ */
   function renderUserBar() {
     const u = currentUser();
     const avatarEl = document.getElementById("current-user-avatar");
@@ -141,6 +152,25 @@
     const author = state.users[q.usuarioId] || fallbackUsers.u2;
     const meta = CATEGORY_META[q.categoria] || { icon: "help-circle", color: "#64748B" };
     const expanded = state.expandedId === q.id;
+    const isAuthor = q.usuarioId === CURRENT_USER_ID;
+    const isResolved = q.estado === "Resuelta";
+
+    const answersHtml = q.respuestas.map((r) => {
+      const responder = state.users[r.usuarioId] || fallbackUsers.u3;
+      return `
+      <div class="rounded-xl border p-3 mt-2 ${r.esAceptada ? "border-emerald-200 bg-emerald-50/40" : "border-slate-100 bg-slate-50/50"}">
+        <div class="flex items-start gap-2">
+          <img src="${responder.avatar}" class="h-6 w-6 rounded-full object-cover" />
+          <div class="flex-1 min-w-0">
+            <span class="text-xs font-semibold text-slate-700">${responder.nombre}</span>
+            <p class="text-sm text-slate-600 mt-0.5">${escapeHtml(r.contenido)}</p>
+          </div>
+          ${isAuthor && !isResolved && !r.esAceptada ? 
+            `<button data-action="accept-answer" data-qid="${q.id}" data-aid="${r.id}" class="text-xs bg-emerald-600 text-white font-bold px-2 py-1 rounded hover:bg-emerald-700 transition">Marcar útil</button>` : ''
+          }
+        </div>
+      </div>`;
+    }).join("");
 
     return `
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm mb-4">
@@ -148,15 +178,19 @@
         <img src="${author.avatar}" class="h-[42px] w-[42px] rounded-full object-cover" />
         <div class="min-w-0 flex-1">
           <span class="text-sm font-semibold text-slate-800">${author.nombre}</span> <span class="text-xs text-slate-400">· ${q.fecha}</span>
-          <button data-action="toggle-expand" data-qid="${q.id}" class="mt-1 block text-left">
+          <button data-action="toggle-expand" data-qid="${q.id}" class="mt-1 block text-left w-full">
             <h3 class="font-display text-[17px] font-bold text-slate-900 hover:text-indigo-700">${escapeHtml(q.titulo)}</h3>
           </button>
-          <p class="mt-1.5 text-sm text-slate-600">${escapeHtml(q.descripcion)}</p>
+          <p class="mt-1.5 text-sm text-slate-600 ${expanded ? "" : "line-clamp-2"}">${escapeHtml(q.descripcion)}</p>
           <div class="mt-3 flex items-center gap-2">
             <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style="background-color:${meta.color}14; color:${meta.color}">${q.categoria}</span>
             <span class="ml-auto inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white">${q.puntos} pts</span>
           </div>
+          ${expanded ? `<div class="mt-4 pt-4 border-t border-slate-100">${answersHtml}</div>` : ""}
         </div>
+      </div>
+      <div class="mt-3 pt-2 border-t border-slate-50 flex justify-end">
+         <button data-action="toggle-expand" data-qid="${q.id}" class="text-xs text-indigo-600 font-bold hover:underline">${expanded ? "Ocultar respuestas" : "Ver / Responder duda"}</button>
       </div>
     </div>`;
   }
@@ -166,12 +200,12 @@
     const countEl = document.getElementById("feed-count");
     if (countEl) countEl.textContent = `${filtered.length} dudas encontradas`;
     const list = document.getElementById("feed-list");
-    if (list) list.innerHTML = filtered.length === 0 ? '<div class="p-5 text-center bg-white border rounded-xl">Sin resultados coincidentes</div>' : filtered.map(renderQuestionCard).join("");
+    if (list) list.innerHTML = filtered.length === 0 ? '<div class="p-5 text-center bg-white border rounded-xl">Sin dudas cargadas.</div>' : filtered.map(renderQuestionCard).join("");
     refreshIcons();
   }
 
   function renderRightSidebar() {
-    const ranking = Object.values(state.users).slice(0, 5);
+    const ranking = Object.values(fallbackUsers).slice(0, 5);
     document.getElementById("ranking-list").innerHTML = ranking.map((u) => `
       <div class="flex items-center gap-2.5">
         <img src="${u.avatar}" class="h-8 w-8 rounded-full object-cover" />
@@ -182,14 +216,27 @@
 
   function render() { renderUserBar(); renderLeftSidebar(); renderFeed(); renderRightSidebar(); }
 
+  /* GESTORES DE ACCIONES REALES EN LA BD */
+  async function acceptAnswer(qId, aId) {
+    try {
+      await db.from('respuestas').update({ es_aceptada: true }).eq('id', aId);
+      await db.from('publicaciones').update({ estado: "Resuelta" }).eq('id', qId);
+      pushToast("¡Solución aceptada con éxito!");
+      await loadDataFromSupabase();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   /* ESCUCHADORES DE EVENTOS */
   document.addEventListener("click", (e) => {
     const target = e.target.closest("[data-action]");
     if (!target) return;
     const action = target.dataset.action;
     if (action === "toggle-expand") { state.expandedId = state.expandedId === target.dataset.qid ? null : target.dataset.qid; renderFeed(); }
-    if (action === "filter-category") { state.filters.category = target.dataset.category; renderFeed(); }
-    if (action === "filter-status") { state.filters.status = target.dataset.status; renderFeed(); }
+    if (action === "filter-category") { state.filters.category = target.dataset.category; renderLeftSidebar(); renderFeed(); }
+    if (action === "filter-status") { state.filters.status = target.dataset.status; renderLeftSidebar(); renderFeed(); }
+    if (action === "accept-answer") { acceptAnswer(target.dataset.qid, target.dataset.aid); }
   });
 
   const searchInp = document.getElementById("search-input");
