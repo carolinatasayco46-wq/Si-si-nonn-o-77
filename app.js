@@ -4,11 +4,11 @@
    ==================================================================== */
 
 (function() {
-  // 1. CONFIGURACIÓN 100% REAL (Conectado a tu proyecto 'radvowugwrkdddmbpapz')
+  // 1. CONFIGURACIÓN 100% REAL VERIFICADA
   const SUPABASE_URL = "https://radvowugwrkdddmbpapz.supabase.co"; 
   const SUPABASE_KEY = "sb_publishable_A8eDSgG2V1LwNVpQbprsHQ_0OettsMo"; 
 
-  // 2. EVITAR SYNTAXERROR: Inicialización segura sin colisionar con variables globales
+  // 2. EVITAR SYNTAXERROR: Inicialización segura
   if (!window.supabaseClientInstance) {
     if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
       window.supabaseClientInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -134,14 +134,18 @@
       const active = state.filters.status === s.key;
       return `<button data-action="filter-status" data-status="${s.key}" class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition ${active ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-50"}">${s.label}</button>`;
     }).join("");
-    document.getElementById("status-filters").innerHTML = statusHtml;
+    
+    const statusContainer = document.getElementById("status-filters");
+    if (statusContainer) statusContainer.innerHTML = statusHtml;
 
     let catHtml = `<button data-action="filter-category" data-category="Todas" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${state.filters.category === "Todas" ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-50"}">Todas</button>`;
     catHtml += CATEGORIES.map((cat) => {
       const meta = CATEGORY_META[cat];
       return `<button data-action="filter-category" data-category="${cat}" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${state.filters.category === cat ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-50"}"><i data-lucide="${meta.icon}" class="h-4 w-4" style="color:${meta.color}"></i> ${cat}</button>`;
     }).join("");
-    document.getElementById("category-filters").innerHTML = catHtml;
+    
+    const catContainer = document.getElementById("category-filters");
+    if (catContainer) catContainer.innerHTML = catHtml;
     refreshIcons();
   }
 
@@ -192,7 +196,6 @@
     </div>`;
   }
 
-  /* REPRODUCIR FEED PRINCIPAL */
   function renderFeed() {
     const filtered = getFilteredQuestions();
     const countEl = document.getElementById("feed-count");
@@ -203,8 +206,10 @@
   }
 
   function renderRightSidebar() {
+    const rankingList = document.getElementById("ranking-list");
+    if (!rankingList) return;
     const ranking = Object.values(fallbackUsers).slice(0, 5);
-    document.getElementById("ranking-list").innerHTML = ranking.map((u) => `
+    rankingList.innerHTML = ranking.map((u) => `
       <div class="flex items-center gap-2.5">
         <img src="${u.avatar}" class="h-8 w-8 rounded-full object-cover" />
         <span class="text-sm font-semibold text-slate-800 flex-1">${u.nombre}</span>
@@ -214,7 +219,6 @@
 
   function render() { renderUserBar(); renderLeftSidebar(); renderFeed(); renderRightSidebar(); }
 
-  /* PROCESOS DE ACTUALIZACIÓN */
   async function acceptAnswer(qId, aId) {
     try {
       await db.from('respuestas').update({ es_aceptada: true }).eq('id', aId);
@@ -226,19 +230,27 @@
     }
   }
 
-  /* EVENT LISTENERS */
-  document.addEventListener("click", (e) => {
-    const target = e.target.closest("[data-action]");
-    if (!target) return;
-    const action = target.dataset.action;
-    if (action === "toggle-expand") { state.expandedId = state.expandedId === target.dataset.qid ? null : target.dataset.qid; renderFeed(); }
-    if (action === "filter-category") { state.filters.category = target.dataset.category; renderLeftSidebar(); renderFeed(); }
-    if (action === "filter-status") { state.filters.status = target.dataset.status; renderLeftSidebar(); renderFeed(); }
-    if (action === "accept-answer") { acceptAnswer(target.dataset.qid, target.dataset.aid); }
-  });
+  /* SISTEMA DE ESCUCHA GLOBAL CAPAZ DE CAPTURAR BOTONES DINÁMICOS */
+  function init() {
+    document.addEventListener("click", (e) => {
+      const target = e.target.closest("[data-action]");
+      if (!target) return;
+      const action = target.dataset.action;
+      if (action === "toggle-expand") { state.expandedId = state.expandedId === target.dataset.qid ? null : target.dataset.qid; renderFeed(); }
+      if (action === "filter-category") { state.filters.category = target.dataset.category; renderLeftSidebar(); renderFeed(); }
+      if (action === "filter-status") { state.filters.status = target.dataset.status; renderLeftSidebar(); renderFeed(); }
+      if (action === "accept-answer") { acceptAnswer(target.dataset.qid, target.dataset.aid); }
+    });
 
-  const searchInp = document.getElementById("search-input");
-  if (searchInp) searchInp.addEventListener("input", (e) => { state.filters.search = e.target.value; renderFeed(); });
+    const searchInp = document.getElementById("search-input");
+    if (searchInp) searchInp.addEventListener("input", (e) => { state.filters.search = e.target.value; renderFeed(); });
 
-  document.addEventListener("DOMContentLoaded", loadDataFromSupabase);
+    loadDataFromSupabase();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();
